@@ -3,9 +3,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import asyncio
 import aiohttp
-import time
-import argparse
-import sys
 from tqdm import tqdm  # For progress bar
 
 # Define advanced XSS payloads (with more variety)
@@ -102,7 +99,7 @@ async def exploit_form(form_details, payload, session, progress_bar):
                 progress_bar.update(1)
 
 # Main function to handle scanning and exploitation
-async def bukhari_xss_finder_exploit(url, scan_urls=True, scan_forms=True, scan_cookies=True, verbose=False):
+async def bukhari_xss_finder_exploit(url):
     async with aiohttp.ClientSession() as session:
         # Retrieve target details (headers, cookies, etc.)
         target_details = await get_target_details(url, session)
@@ -127,34 +124,31 @@ async def bukhari_xss_finder_exploit(url, scan_urls=True, scan_forms=True, scan_
             soup = BeautifulSoup(await response.text(), "html.parser")
 
         # Scan forms for potential XSS injection points
-        if scan_forms:
-            forms = soup.find_all("form")
-            for form in forms:
-                form_details = {}
-                action = form.get("action")
-                method = form.get("method", "get").lower()
-                inputs = form.find_all("input")
-                form_details["action"] = urljoin(url, action)
-                form_details["method"] = method
-                form_details["inputs"] = []
+        forms = soup.find_all("form")
+        for form in forms:
+            form_details = {}
+            action = form.get("action")
+            method = form.get("method", "get").lower()
+            inputs = form.find_all("input")
+            form_details["action"] = urljoin(url, action)
+            form_details["method"] = method
+            form_details["inputs"] = []
 
-                for input_tag in inputs:
-                    input_name = input_tag.get("name")
-                    input_type = input_tag.get("type", "text")
-                    form_details["inputs"].append({"name": input_name, "type": input_type})
+            for input_tag in inputs:
+                input_name = input_tag.get("name")
+                input_type = input_tag.get("type", "text")
+                form_details["inputs"].append({"name": input_name, "type": input_type})
 
-                for payload in payloads:
-                    tasks.append(exploit_form(form_details, payload, session, progress_bar))
+            for payload in payloads:
+                tasks.append(exploit_form(form_details, payload, session, progress_bar))
 
         # Scan URL parameters for XSS
-        if scan_urls:
-            for payload in payloads:
-                tasks.append(scan_url_params(url, payload, session, progress_bar))
+        for payload in payloads:
+            tasks.append(scan_url_params(url, payload, session, progress_bar))
 
         # Scan cookies for XSS
-        if scan_cookies:
-            for payload in payloads:
-                tasks.append(scan_cookies(url, payload, session, progress_bar))
+        for payload in payloads:
+            tasks.append(scan_cookies(url, payload, session, progress_bar))
 
         # Wait for all tasks to complete
         await asyncio.gather(*tasks)
@@ -162,28 +156,13 @@ async def bukhari_xss_finder_exploit(url, scan_urls=True, scan_forms=True, scan_
         # Close the progress bar
         progress_bar.close()
 
-# CLI setup
+# CLI setup (no additional arguments required)
 def main():
-    parser = argparse.ArgumentParser(description="Bukhari XSS Finder - A Super Fast XSS Vulnerability Finder")
-    parser.add_argument("url", type=str, help="URL of the website to scan")
-    parser.add_argument("--scan-forms", action="store_true", help="Scan forms for XSS")
-    parser.add_argument("--scan-urls", action="store_true", help="Scan URL parameters for XSS")
-    parser.add_argument("--scan-cookies", action="store_true", help="Scan cookies for XSS")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-    args = parser.parse_args()
-
-    target_url = args.url
-    scan_forms = args.scan_forms
-    scan_urls = args.scan_urls
-    scan_cookies = args.scan_cookies
-    verbose = args.verbose
-
-    if not any([scan_forms, scan_urls, scan_cookies]):
-        scan_forms = scan_urls = scan_cookies = True  # Default to scanning everything
+    url = input("Enter the URL of the website to scan: ").strip()
 
     # Run the exploit scanner
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(bukhari_xss_finder_exploit(target_url, scan_urls, scan_forms, scan_cookies, verbose))
+    loop.run_until_complete(bukhari_xss_finder_exploit(url))
 
 if __name__ == "__main__":
     main()
